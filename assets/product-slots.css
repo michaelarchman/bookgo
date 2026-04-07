@@ -1,0 +1,28 @@
+.bookgo-slots-table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 4px;
+}
+
+.bookgo-slots-table th,
+.bookgo-slots-table td {
+    padding: 6px 10px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.bookgo-slots-table thead th {
+    background: #f9f9f9;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #555;
+}
+
+.bookgo-slot-row:hover td {
+    background: #fafafa;
+}
+
+.bookgo-slots-table input.short {
+    margin: 0;
+}

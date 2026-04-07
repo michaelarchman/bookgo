@@ -1,0 +1,92 @@
+.bookgo-form-wrapper {
+    max-width: 480px;
+}
+
+/* Daty */
+.bookgo-dates {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.bookgo-date-btn {
+    width: 100%;
+    padding: 8px 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    text-align: left;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.bookgo-date-btn:hover {
+    border-color: #0073aa;
+}
+
+.bookgo-date-btn.selected {
+    border-color: #0073aa;
+    background: #0073aa;
+    color: #fff;
+}
+
+/* Godziny */
+.bookgo-hours-section h4 {
+    margin: 0 0 8px;
+    font-size: 14px;
+}
+
+.bookgo-hours-list {
+    list-style: none;
+    margin: 0 0 16px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.bookgo-hour-btn {
+    width: 100%;
+    padding: 7px 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    text-align: left;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.bookgo-hour-btn:hover {
+    border-color: #0073aa;
+}
+
+.bookgo-hour-btn.selected {
+    border-color: #0073aa;
+    background: #0073aa;
+    color: #fff;
+}
+
+/* Przycisk główny */
+.bookgo-submit {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.bookgo-submit:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.bookgo-result {
+    margin-top: 10px;
+    font-size: 13px;
+    color: #555;
+}
