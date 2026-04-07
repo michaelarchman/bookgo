@@ -13,6 +13,8 @@ if (!defined('ABSPATH')) exit;
 
 use BookGo\Admin\AppointmentsCalendar;
 use BookGo\Admin\ProductSlots;
+use BookGo\Admin\ProductQuestionnaire;
+use BookGo\Admin\ShareLinks;
 use BookGo\Api\AppointmentsApi;
 use BookGo\Frontend\BookingForm;
 use BookGo\WooCommerce\BookingProductType;
@@ -58,6 +60,10 @@ function activate(): void
 register_activation_hook(BOOKGO_PLUGIN_FILE, __NAMESPACE__ . '\activate');
 
 add_action('plugins_loaded', function (): void {
+    if (!class_exists('WooCommerce')) {
+        return;
+    }
+
     if (is_admin()) {
         AppointmentsCalendar::init();
         ProductSlots::init();
@@ -65,10 +71,8 @@ add_action('plugins_loaded', function (): void {
 
     AppointmentsApi::register();
     BookingForm::init();
-
-    add_action('init', function (): void {
-        if (!class_exists('WooCommerce')) return;
-        BookingProductType::init();
-        Hooks::init();
-    });
+    BookingProductType::init();
+    Hooks::init();
+    ShareLinks::init();
+    ProductQuestionnaire::init();
 });
