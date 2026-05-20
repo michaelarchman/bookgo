@@ -14,6 +14,7 @@ class Hooks
         add_filter('woocommerce_get_item_data',                    [self::class, 'displayCartItemData'], 10, 2);
         add_action('woocommerce_checkout_create_order_line_item',  [self::class, 'saveOrderItemMeta'], 10, 3);
         add_action('woocommerce_checkout_order_created',           [self::class, 'saveOrderMeta']);
+        add_filter('woocommerce_order_item_get_formatted_meta_data', [self::class, 'overrideDisplayMeta'], 10, 2);
     }
 
     public static function injectCartItemData(array $cart_item_data, int $product_id): array
@@ -71,6 +72,34 @@ class Hooks
         if (!empty($values['bookgo_time'])) {
             $item->add_meta_data(__('Godzina wizyty', 'bookgo'), wc_clean($values['bookgo_time']), true);
         }
+    }
+
+    public static function overrideDisplayMeta(array $formatted_meta, \WC_Order_Item $item): array
+    {
+        if (!$item instanceof \WC_Order_Item_Product) return $formatted_meta;
+
+        $product = $item->get_product();
+        if (!$product || !$product->is_type('bookgo')) return $formatted_meta;
+
+        $order = $item->get_order();
+        if (!$order) return $formatted_meta;
+
+        $bookgo_date = $order->get_meta('bookgo_date');
+        $bookgo_time = $order->get_meta('bookgo_time');
+
+        $date_key = __('Data wizyty', 'bookgo');
+        $time_key = __('Godzina wizyty', 'bookgo');
+
+        foreach ($formatted_meta as $meta) {
+            if ($meta->display_key === $date_key && $bookgo_date) {
+                $meta->display_value = wp_kses_post(wpautop(wptexturize($bookgo_date)));
+            }
+            if ($meta->display_key === $time_key && $bookgo_time) {
+                $meta->display_value = wp_kses_post(wpautop(wptexturize($bookgo_time)));
+            }
+        }
+
+        return $formatted_meta;
     }
 
     public static function saveOrderMeta(\WC_Order $order): void

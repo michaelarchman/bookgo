@@ -57,12 +57,14 @@ document.addEventListener('DOMContentLoaded', function () {
         locale:       'pl',
         initialView:  'dayGridMonth',
         headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
+        eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
         events: function (info, successCallback, failureCallback) {
             fetch('{$ajax_url}?action=bookgo_get_appointments&nonce={$nonce}&start=' + info.startStr + '&end=' + info.endStr)
                 .then(function (r) { return r.json(); })
                 .then(successCallback)
                 .catch(failureCallback);
         },
+        eventDidMount: function (info) { info.el.style.cursor = 'pointer'; },
         eventClick: function (info) {
             var orderId = info.event.extendedProps.order_id;
             if (orderId) window.location.href = '/wp-admin/post.php?post=' + orderId + '&action=edit';
