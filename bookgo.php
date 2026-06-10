@@ -2,7 +2,7 @@
 /**
  * Plugin Name: BookGo
  * Description: System rezerwacji wizyt zintegrowany z WooCommerce — typ produktu „Wizyta (BookGo)".
- * Version:     1.0.0
+ * Version:     1.1.0
  * Author:      Michał Łuczak
  * Text Domain: bookgo
  */
@@ -12,15 +12,18 @@ namespace BookGo;
 if (!defined('ABSPATH')) exit;
 
 use BookGo\Admin\AppointmentsCalendar;
+use BookGo\Admin\CalendarManager;
 use BookGo\Admin\ProductSlots;
 use BookGo\Admin\ProductQuestionnaire;
+use BookGo\Admin\Settings;
 use BookGo\Admin\ShareLinks;
+use BookGo\Api\AdminSlotsApi;
 use BookGo\Api\AppointmentsApi;
 use BookGo\Frontend\BookingForm;
 use BookGo\WooCommerce\BookingProductType;
 use BookGo\WooCommerce\Hooks;
 
-define('BOOKGO_VERSION',     '1.0.0');
+define('BOOKGO_VERSION',     '1.1.0');
 define('BOOKGO_PLUGIN_FILE', __FILE__);
 define('BOOKGO_PLUGIN_DIR',  plugin_dir_path(__FILE__));
 
@@ -66,10 +69,13 @@ add_action('plugins_loaded', function (): void {
 
     if (is_admin()) {
         AppointmentsCalendar::init();
+        CalendarManager::init();
         ProductSlots::init();
+        Settings::init();
     }
 
     AppointmentsApi::register();
+    AdminSlotsApi::register();
     BookingForm::init();
     BookingProductType::init();
     Hooks::init();

@@ -30,8 +30,10 @@ class ProductSlots
 
     public static function render(\WP_Post $post): void
     {
-        $slots    = self::getSlots($post->ID);
-        $duration = intval(get_post_meta($post->ID, '_bookgo_duration', true)) ?: 60;
+        $slots       = self::getSlots($post->ID);
+        $duration    = intval(get_post_meta($post->ID, '_bookgo_duration', true)) ?: 60;
+        $calendar_id = get_post_meta($post->ID, '_bookgo_calendar_id', true) ?: '';
+        $calendars   = \BookGo\Admin\CalendarManager::getCalendars();
         wp_nonce_field('bookgo_slots_save', '_bookgo_slots_nonce');
         ?>
         <div id="bookgo-slots-wrapper">
@@ -42,6 +44,23 @@ class ProductSlots
                 <p>
                     <label style="font-weight:600;"><?php esc_html_e('Czas trwania wizyty (minuty)', 'bookgo'); ?></label><br>
                     <input type="number" name="_bookgo_duration" value="<?php echo esc_attr($duration); ?>" min="1" style="width:80px;" class="short">
+                </p>
+                <p>
+                    <label style="font-weight:600;"><?php esc_html_e('Kalendarz (zasób)', 'bookgo'); ?></label><br>
+                    <select name="_bookgo_calendar_id" style="min-width:200px;">
+                        <option value=""><?php esc_html_e('— bez kalendarza —', 'bookgo'); ?></option>
+                        <?php foreach ($calendars as $cal) : ?>
+                            <option value="<?php echo esc_attr($cal['id']); ?>" <?php selected($calendar_id, $cal['id']); ?>>
+                                <?php echo esc_html($cal['name']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <?php if (empty($calendars)) : ?>
+                        <span style="color:#888;margin-left:8px;font-size:12px;">
+                            <?php esc_html_e('Brak kalendarzy.', 'bookgo'); ?>
+                            <a href="<?php echo esc_url(admin_url('admin.php?page=bookgo-calendars')); ?>"><?php esc_html_e('Utwórz pierwszy.', 'bookgo'); ?></a>
+                        </span>
+                    <?php endif; ?>
                 </p>
                 <hr style="margin:12px 0;">
                 <table class="bookgo-slots-table widefat">
@@ -102,8 +121,10 @@ class ProductSlots
         usort($slots, static fn($a, $b) => strcmp($a['date'] . $a['time'], $b['date'] . $b['time']));
         update_post_meta($post_id, '_bookgo_slots', $slots);
 
-        $duration = max(1, intval($_POST['_bookgo_duration'] ?? 60)) ?: 60;
-        update_post_meta($post_id, '_bookgo_duration', $duration);
+        $duration    = max(1, intval($_POST['_bookgo_duration'] ?? 60)) ?: 60;
+        $calendar_id = sanitize_text_field($_POST['_bookgo_calendar_id'] ?? '');
+        update_post_meta($post_id, '_bookgo_duration',    $duration);
+        update_post_meta($post_id, '_bookgo_calendar_id', $calendar_id);
     }
 
     public static function getSlots(int $product_id): array

@@ -15,6 +15,11 @@ class Hooks
         add_action('woocommerce_checkout_create_order_line_item',  [self::class, 'saveOrderItemMeta'], 10, 3);
         add_action('woocommerce_checkout_order_created',           [self::class, 'saveOrderMeta']);
         add_filter('woocommerce_order_item_get_formatted_meta_data', [self::class, 'overrideDisplayMeta'], 10, 2);
+
+        // Re-validate at checkout (race condition guard)
+        add_action('woocommerce_checkout_process', [self::class, 'validateCheckout']);
+        // Warn on cart page if slot was taken while user browsed
+        add_action('woocommerce_check_cart_items', [self::class, 'checkCartItems']);
     }
 
     public static function injectCartItemData(array $cart_item_data, int $product_id): array
@@ -100,6 +105,63 @@ class Hooks
         }
 
         return $formatted_meta;
+    }
+
+    /**
+     * Re-validates every bookgo cart item at checkout submission.
+     * Prevents race condition where two customers book the same slot concurrently.
+     */
+    public static function validateCheckout(): void
+    {
+        $service = new BookingService();
+
+        foreach (WC()->cart->get_cart() as $cart_item) {
+            $product = $cart_item['data'] ?? null;
+            if (!$product || !$product->is_type('bookgo')) continue;
+
+            $date = $cart_item['bookgo_date'] ?? '';
+            $time = $cart_item['bookgo_time'] ?? '';
+
+            if (!$date || !$time) {
+                wc_add_notice(
+                    sprintf(__('Brak daty lub godziny dla: %s. Wróć do produktu i wybierz termin.', 'bookgo'), $product->get_name()),
+                    'error'
+                );
+                continue;
+            }
+
+            if (!$service->isSlotAvailable($product->get_id(), $date, $time)) {
+                wc_add_notice(
+                    sprintf(__('Termin %1$s godz. %2$s (%3$s) został właśnie zajęty. Wybierz inny termin.', 'bookgo'), $date, $time, $product->get_name()),
+                    'error'
+                );
+            }
+        }
+    }
+
+    /**
+     * Warns (non-blocking) on the cart page if a bookgo slot became unavailable.
+     */
+    public static function checkCartItems(): void
+    {
+        $service = new BookingService();
+
+        foreach (WC()->cart->get_cart() as $cart_item) {
+            $product = $cart_item['data'] ?? null;
+            if (!$product || !$product->is_type('bookgo')) continue;
+
+            $date = $cart_item['bookgo_date'] ?? '';
+            $time = $cart_item['bookgo_time'] ?? '';
+
+            if (!$date || !$time) continue;
+
+            if (!$service->isSlotAvailable($product->get_id(), $date, $time)) {
+                wc_add_notice(
+                    sprintf(__('Termin %1$s godz. %2$s (%3$s) jest już zajęty. Wybierz inny termin przed finalizacją.', 'bookgo'), $date, $time, $product->get_name()),
+                    'notice'
+                );
+            }
+        }
     }
 
     public static function saveOrderMeta(\WC_Order $order): void

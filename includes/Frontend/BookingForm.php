@@ -1,6 +1,8 @@
 <?php
 namespace BookGo\Frontend;
 
+use BookGo\Admin\Settings;
+
 if (!defined('ABSPATH')) exit;
 
 class BookingForm
@@ -9,12 +11,31 @@ class BookingForm
     {
         add_shortcode('bookgo_form', [self::class, 'render']);
         add_action('wp_enqueue_scripts', [self::class, 'enqueueAssets']);
+
+        if (Settings::autoInjectForm()) {
+            add_action('woocommerce_single_product_summary', [self::class, 'maybeInjectOnProductPage'], 25);
+        }
+    }
+
+    /**
+     * Auto-injects the booking form on single bookgo product pages.
+     * Removes WooCommerce's default add-to-cart button (fires at priority 30).
+     */
+    public static function maybeInjectOnProductPage(): void
+    {
+        global $product;
+        if (!$product || !$product->is_type('bookgo')) return;
+
+        remove_action('woocommerce_single_product_summary', 'woocommerce_template_single_add_to_cart', 30);
+
+        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+        echo self::render(['product_id' => $product->get_id()]);
     }
 
     public static function enqueueAssets(): void
     {
         wp_enqueue_style('bookgo-form', plugins_url('assets/booking-form.css', BOOKGO_PLUGIN_FILE), [], BOOKGO_VERSION);
-        wp_enqueue_script('bookgo-form', plugins_url('assets/booking-form.js', BOOKGO_PLUGIN_FILE), ['jquery'], BOOKGO_VERSION, true);
+        wp_enqueue_script('bookgo-form', plugins_url('assets/booking-form.js', BOOKGO_PLUGIN_FILE), [], BOOKGO_VERSION, true);
         wp_localize_script('bookgo-form', 'BookGo', [
             'apiBase' => esc_url(rest_url('bookgo/v1')),
             'nonce'   => wp_create_nonce('wp_rest'),
