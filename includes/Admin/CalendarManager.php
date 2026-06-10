@@ -1,6 +1,8 @@
 <?php
 namespace BookGo\Admin;
 
+use BookGo\Service\GoogleAuthService;
+
 if (!defined('ABSPATH')) exit;
 
 /**
@@ -15,8 +17,10 @@ class CalendarManager
     public static function init(): void
     {
         add_action('admin_menu',    [self::class, 'addMenuPage']);
-        add_action('admin_post_bookgo_save_calendar',   [self::class, 'handleSave']);
-        add_action('admin_post_bookgo_delete_calendar', [self::class, 'handleDelete']);
+        add_action('admin_post_bookgo_save_calendar',        [self::class, 'handleSave']);
+        add_action('admin_post_bookgo_delete_calendar',      [self::class, 'handleDelete']);
+        add_action('admin_post_bookgo_disconnect_gcal',      [self::class, 'handleGcalDisconnect']);
+        add_action('admin_init',                             [self::class, 'handleGcalCallback']);
     }
 
     // ── Data ──────────────────────────────────────────────────────────────────
@@ -53,6 +57,27 @@ class CalendarManager
     private static function saveCalendars(array $calendars): void
     {
         update_option(self::OPTION, array_values($calendars));
+    }
+
+    // ── Google Calendar OAuth ─────────────────────────────────────────────────
+
+    public static function handleGcalCallback(): void
+    {
+        if (empty($_GET['bookgo_gcal_callback']) || empty($_GET['code'])) return;
+        if (!current_user_can('manage_woocommerce')) return;
+        GoogleAuthService::handleCallback();
+    }
+
+    public static function handleGcalDisconnect(): void
+    {
+        check_admin_referer('bookgo_gcal_disconnect');
+        if (!current_user_can('manage_woocommerce')) wp_die('Brak uprawnień.');
+
+        $id = sanitize_text_field($_POST['calendar_id'] ?? '');
+        GoogleAuthService::disconnect($id);
+
+        wp_safe_redirect(add_query_arg(['page' => 'bookgo-calendars', 'gcal_disconnected' => '1'], admin_url('admin.php')));
+        exit;
     }
 
     // ── Handlers ──────────────────────────────────────────────────────────────
@@ -122,9 +147,14 @@ class CalendarManager
         <div class="wrap">
             <h1><?php esc_html_e('Kalendarze BookGo', 'bookgo'); ?></h1>
 
-            <?php if (!empty($_GET['saved']))   echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Zapisano.', 'bookgo') . '</p></div>'; ?>
-            <?php if (!empty($_GET['deleted'])) echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Usunięto.', 'bookgo') . '</p></div>'; ?>
-            <?php if (!empty($_GET['error']))   echo '<div class="notice notice-error"><p>' . esc_html__('Nazwa kalendarza nie może być pusta.', 'bookgo') . '</p></div>'; ?>
+            <?php if (!empty($_GET['saved']))           echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Zapisano.', 'bookgo') . '</p></div>'; ?>
+            <?php if (!empty($_GET['deleted']))         echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Usunięto.', 'bookgo') . '</p></div>'; ?>
+            <?php if (!empty($_GET['error']))           echo '<div class="notice notice-error"><p>' . esc_html__('Nazwa kalendarza nie może być pusta.', 'bookgo') . '</p></div>'; ?>
+            <?php if (!empty($_GET['gcal_connected']))  echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Połączono z Google Calendar.', 'bookgo') . '</p></div>'; ?>
+            <?php if (!empty($_GET['gcal_disconnected'])) echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Rozłączono Google Calendar.', 'bookgo') . '</p></div>'; ?>
+            <?php if (empty(get_option('bookgo_gcal_client_id'))) : ?>
+                <div class="notice notice-warning"><p><?php esc_html_e('Uzupełnij Client ID i Client Secret Google w ', 'bookgo'); ?><a href="<?php echo esc_url(admin_url('admin.php?page=bookgo-settings')); ?>"><?php esc_html_e('Ustawieniach BookGo', 'bookgo'); ?></a>.</p></div>
+            <?php endif; ?>
 
             <div style="display:flex;gap:32px;align-items:flex-start;margin-top:16px;">
 
@@ -140,18 +170,39 @@ class CalendarManager
                                     <th><?php esc_html_e('Nazwa', 'bookgo'); ?></th>
                                     <th><?php esc_html_e('ID', 'bookgo'); ?></th>
                                     <th><?php esc_html_e('Produkty', 'bookgo'); ?></th>
+                                    <th><?php esc_html_e('Google Calendar', 'bookgo'); ?></th>
                                     <th><?php esc_html_e('Akcje', 'bookgo'); ?></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php foreach ($calendars as $cal) :
-                                    $count = count(self::getProductIds($cal['id']));
+                                    $count      = count(self::getProductIds($cal['id']));
+                                    $connected  = GoogleAuthService::isConnected($cal['id']);
+                                    $has_creds  = !empty(get_option('bookgo_gcal_client_id'));
                                 ?>
                                 <tr>
                                     <td><span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:<?php echo esc_attr($cal['color']); ?>;"></span></td>
                                     <td><strong><?php echo esc_html($cal['name']); ?></strong></td>
                                     <td><code style="font-size:11px;"><?php echo esc_html($cal['id']); ?></code></td>
                                     <td><?php echo intval($count); ?></td>
+                                    <td>
+                                        <?php if ($connected) : ?>
+                                            <span style="color:#46b450;">&#10003; <?php esc_html_e('Połączono', 'bookgo'); ?></span>
+                                            &nbsp;
+                                            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline;">
+                                                <?php wp_nonce_field('bookgo_gcal_disconnect'); ?>
+                                                <input type="hidden" name="action"      value="bookgo_disconnect_gcal">
+                                                <input type="hidden" name="calendar_id" value="<?php echo esc_attr($cal['id']); ?>">
+                                                <button type="submit" class="button-link" style="color:#a00;"><?php esc_html_e('Rozłącz', 'bookgo'); ?></button>
+                                            </form>
+                                        <?php elseif ($has_creds) : ?>
+                                            <a href="<?php echo esc_url(GoogleAuthService::getAuthUrl($cal['id'])); ?>" class="button button-secondary" style="font-size:12px;">
+                                                <?php esc_html_e('Połącz z Google', 'bookgo'); ?>
+                                            </a>
+                                        <?php else : ?>
+                                            <span style="color:#999;"><?php esc_html_e('Brak credentials', 'bookgo'); ?></span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td>
                                         <a href="<?php echo esc_url(add_query_arg(['page' => 'bookgo-calendars', 'edit' => $cal['id']], admin_url('admin.php'))); ?>"><?php esc_html_e('Edytuj', 'bookgo'); ?></a>
                                         &nbsp;|&nbsp;

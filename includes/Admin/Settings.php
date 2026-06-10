@@ -25,6 +25,16 @@ class Settings
 
     public static function registerSettings(): void
     {
+        register_setting('bookgo_settings', 'bookgo_gcal_client_id', [
+            'sanitize_callback' => 'sanitize_text_field',
+            'default'           => '',
+        ]);
+
+        register_setting('bookgo_settings', 'bookgo_gcal_client_secret', [
+            'sanitize_callback' => 'sanitize_text_field',
+            'default'           => '',
+        ]);
+
         register_setting('bookgo_settings', 'bookgo_auto_inject_form', [
             'sanitize_callback' => fn($v) => $v ? '1' : '0',
             'default'           => '1',
@@ -70,6 +80,9 @@ class Settings
     {
         $savedStatuses = self::conflictStatuses();
         $step          = self::timeStep();
+        $gcal_client_id     = get_option('bookgo_gcal_client_id', '');
+        $gcal_client_secret = get_option('bookgo_gcal_client_secret', '');
+        $redirect_uri       = admin_url('admin.php?page=bookgo-calendars&bookgo_gcal_callback=1');
         $allStatuses   = [
             'wc-pending'    => __('Oczekuje na płatność', 'bookgo'),
             'wc-processing' => __('W realizacji', 'bookgo'),
@@ -83,6 +96,29 @@ class Settings
             <form method="post" action="options.php">
                 <?php settings_fields('bookgo_settings'); ?>
                 <table class="form-table" role="presentation">
+
+                    <tr>
+                        <th scope="row"><?php esc_html_e('Google OAuth — Client ID', 'bookgo'); ?></th>
+                        <td>
+                            <input type="text" name="bookgo_gcal_client_id" value="<?php echo esc_attr($gcal_client_id); ?>" class="regular-text">
+                            <p class="description"><?php esc_html_e('Z Google Cloud Console → APIs & Services → Credentials.', 'bookgo'); ?></p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row"><?php esc_html_e('Google OAuth — Client Secret', 'bookgo'); ?></th>
+                        <td>
+                            <input type="password" name="bookgo_gcal_client_secret" value="<?php echo esc_attr($gcal_client_secret); ?>" class="regular-text">
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row"><?php esc_html_e('Google OAuth — Redirect URI', 'bookgo'); ?></th>
+                        <td>
+                            <code><?php echo esc_html($redirect_uri); ?></code>
+                            <p class="description"><?php esc_html_e('Dodaj ten URI w Google Cloud Console → Credentials → Authorized redirect URIs.', 'bookgo'); ?></p>
+                        </td>
+                    </tr>
 
                     <tr>
                         <th scope="row"><?php esc_html_e('Formularz rezerwacji', 'bookgo'); ?></th>

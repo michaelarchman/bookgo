@@ -2,6 +2,7 @@
 namespace BookGo\WooCommerce;
 
 use BookGo\Service\BookingService;
+use BookGo\Service\GoogleCalendarService;
 
 if (!defined('ABSPATH')) exit;
 
@@ -20,6 +21,8 @@ class Hooks
         add_action('woocommerce_checkout_process', [self::class, 'validateCheckout']);
         // Warn on cart page if slot was taken while user browsed
         add_action('woocommerce_check_cart_items', [self::class, 'checkCartItems']);
+
+        add_action('woocommerce_order_status_changed', [self::class, 'syncGoogleCalendar'], 10, 3);
     }
 
     public static function injectCartItemData(array $cart_item_data, int $product_id): array
@@ -162,6 +165,45 @@ class Hooks
                 );
             }
         }
+    }
+
+    public static function syncGoogleCalendar(int $order_id, string $old_status, string $new_status): void
+    {
+        $order = wc_get_order($order_id);
+        if (!$order) return;
+
+        $is_bookgo = false;
+        foreach ($order->get_items() as $item) {
+            $product = $item->get_product();
+            if ($product && $product->is_type('bookgo')) { $is_bookgo = true; break; }
+        }
+        if (!$is_bookgo) return;
+
+        $create_statuses = apply_filters('bookgo_gcal_create_statuses', ['processing', 'completed']);
+        $cancel_statuses = apply_filters('bookgo_gcal_cancel_statuses', ['cancelled', 'refunded', 'failed']);
+
+        if (in_array($new_status, $create_statuses, true) && !$order->get_meta('_bookgo_gcal_event_id')) {
+            $calendar_id = self::getOrderCalendarId($order);
+            if ($calendar_id) {
+                GoogleCalendarService::createEvent($order, $calendar_id);
+            }
+        }
+
+        if (in_array($new_status, $cancel_statuses, true) && $order->get_meta('_bookgo_gcal_event_id')) {
+            GoogleCalendarService::deleteEvent($order);
+        }
+    }
+
+    private static function getOrderCalendarId(\WC_Order $order): ?string
+    {
+        foreach ($order->get_items() as $item) {
+            $product = $item->get_product();
+            if ($product && $product->is_type('bookgo')) {
+                $cal_id = get_post_meta($product->get_id(), '_bookgo_calendar_id', true);
+                return $cal_id ?: null;
+            }
+        }
+        return null;
     }
 
     public static function saveOrderMeta(\WC_Order $order): void
